@@ -99,7 +99,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: editorconfig-checker
         run: |
-          docker run --rm -v "$PWD:/mnt" --workdir /mnt editorconfig/editorconfig-checker:2.7.3
+          curl -sL -o /tmp/ec.tar.gz "https://github.com/editorconfig-checker/editorconfig-checker/releases/latest/download/editorconfig-checker-linux-amd64.tar.gz"
+          tar -xzf /tmp/ec.tar.gz
+          ./editorconfig-checker-linux-amd64/ec -config .editorconfig
 
   typos:
     name: typos (blocking)
