@@ -13,7 +13,7 @@ tool is pure: it never touches the filesystem.
 
 ## Usage
 
-```
+```text
 assemble-cmdline [dir]
 ```
 
@@ -40,7 +40,7 @@ shell scripts, and this tool is.
 
 ## Build
 
-```
+```sh
 go build -o /usr/sbin/assemble-cmdline .
 ```
 

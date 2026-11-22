@@ -1,3 +1,3 @@
 module github.com/skea999/assemble-cmdline
 
-go 1.22.2
+go 1.22
