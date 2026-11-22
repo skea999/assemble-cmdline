@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Pre-commit hook (assemble-cmdline): fmt + vet + golangci-lint + test +
+# secret pattern scan on staged files. Mirrors the feralos pre-commit.
+# Install: git config core.hooksPath .githooks
+
+echo "=== Pre-commit: fmt + vet + lint + test + secrets ==="
+
+fail() { echo "✗ $1 — commit rejected"; echo "To bypass: git commit --no-verify"; exit 1; }
+
+GO_FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.go$' || true)
+
+if [ -n "$GO_FILES" ]; then
+  echo "=== gofmt (staged) ==="
+  for f in $GO_FILES; do
+    [ -f "$f" ] || continue
+    dirty="$(gofmt -l "$f")"
+    [ -z "$dirty" ] || fail "gofmt: $dirty unformatted (run gofmt -w)"
+  done
+  echo "✓ gofmt clean"
+
+  echo "=== go vet ==="
+  go vet ./... || fail "go vet"
+  echo "✓ go vet passed"
+
+  if command -v golangci-lint >/dev/null 2>&1; then
+    echo "=== golangci-lint ==="
+    golangci-lint run ./... || fail "golangci-lint"
+    echo "✓ golangci-lint passed"
+  fi
+
+  echo "=== go test ==="
+  go test -count=1 ./... || fail "go test"
+  echo "✓ go test passed"
+fi
+
+echo "=== Secret pattern scan (staged) ==="
+PATTERNS=(
+  'AKIA[0-9A-Z]{16}'
+  '-----BEGIN[[:space:]]*(RSA|EC|OPENSSH|DSA)[[:space:]]*PRIVATE KEY-----'
+  'ghp_[0-9a-zA-Z]{36}'
+  'gho_[0-9a-zA-Z]{36}'
+  'sk-[0-9a-zA-Z]{32,}'
+  'xox[baprs]-[0-9a-zA-Z]{10,}'
+  $'(password|secret|api_key|apikey)[[:space:]]*[:=][[:space:]]*["\'][^"\']{8,}["\']'
+)
+BLOCKED=0
+while IFS= read -r f; do
+  [ -f "$f" ] || continue
+  for PATTERN in "${PATTERNS[@]}"; do
+    if grep -qiE -- "$PATTERN" "$f"; then
+      echo "⚠️  BLOCKED: $f matches secret pattern"
+      BLOCKED=1
+    fi
+  done
+done < <(git diff --cached --name-only --diff-filter=ACMR)
+[ "$BLOCKED" -eq 0 ] || fail "secret scan"
+echo "✓ secret scan passed"
+
+exit 0

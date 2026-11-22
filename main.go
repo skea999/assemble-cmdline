@@ -51,7 +51,7 @@ func Assemble(dir string) (string, error) {
 		return "", fmt.Errorf("read %s: %w", dir, err)
 	}
 	// ReadDir sorts by name; keep only *.conf fragments.
-	var files []string
+	files := make([]string, 0, len(entries))
 	for _, e := range entries {
 		if e.IsDir() || filepath.Ext(e.Name()) != ".conf" {
 			continue
