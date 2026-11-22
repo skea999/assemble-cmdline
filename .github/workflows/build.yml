@@ -1,0 +1,49 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test -count=1 ./...
+
+      - name: Build
+        run: |
+          go build -o assemble-cmdline .
+          ./assemble-cmdline --help 2>/dev/null && exit 1 || true
+          mkdir -p /tmp/cmdline.d
+          printf 'rootflags=subvol=@\n' > /tmp/cmdline.d/00-base.conf
+          printf '# comment\nquiet=1\n' > /tmp/cmdline.d/50-x.conf
+          out="$(./assemble-cmdline /tmp/cmdline.d)"
+          [ "$out" = "rootflags=subvol=@ quiet=1" ] || { echo "smoke FAIL: $out"; exit 1; }
+          echo "smoke OK: $out"
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create source release
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes --title "$GITHUB_REF_NAME"
+        env:
+          GH_TOKEN: ${{ github.token }}
